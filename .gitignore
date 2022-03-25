@@ -1,4 +1,5 @@
 tutorial/data/*
 tutorial/runs/*
 data/*
+.vscode/*
 
