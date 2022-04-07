@@ -1,3 +1,4 @@
+from typing import List
 import matplotlib.pyplot as plt
 import torch
 import os.path
@@ -38,7 +39,7 @@ class ExperimentLogger:
     save_image(recon, f'{output_file}')
 
   @torch.no_grad()
-  def save_loss(self, train_loss: float, val_loss: float, epoch: int) -> None:
+  def save_loss(self, train_loss: List[float], val_loss: List[float]) -> None:
     """ Save the validation and taining loss
         """
     plt.figure(figsize=(20, 5))
