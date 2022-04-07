@@ -80,7 +80,7 @@ def main():
     train_losses.append(train_loss)
     test_losses.append(test_loss)
 
-  logger.save_loss(train_losses, test_losses, epoch + 1)
+  logger.save_loss(train_losses, test_losses)
 
 
 if __name__ == '__main__':
