@@ -102,7 +102,7 @@ class Trainer(object):
   def __init__(self,
                model: nn.Module,
                vgg_variant: str,
-               device: str,
+               device: torch.device,
                hyper_params: dict = None) -> None:
     self._dev = device
     self._hp = {}
@@ -186,7 +186,7 @@ class Trainer(object):
     kl = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     return kl
 
-  def run_epoch(self, model: nn.Module, train_dl: DataLoader) -> float:
+  def run_train_epoch(self, model: nn.Module, train_dl: DataLoader) -> float:
     """ Execute 1 epoch using the given dataloader
 
     Executes the training look for one epoch and returns the loss
@@ -194,7 +194,7 @@ class Trainer(object):
     Args:
       model: The Vae model instance
       train_dl: Dataloader for the training dataset
-   
+
     Returns:
       Loss for the epoch average of the epoch datasize
     """
@@ -216,24 +216,24 @@ class Trainer(object):
 
     return running_loss / running_size
 
+  def run_test_loop(self, model: nn.Module, test_dl: DataLoader) -> float:
+    """ Execute 1 iteration of the test set
 
-"""
-if __name__ == '__main__':
-  vgg19 = models.vgg19(pretrained=True)
-  print(vgg19)
-  #print(type(vgg19.features))
+    Returns the avg perceptual loss during the test loop
+    Args:
+      model: The Vae model instance
+      test_dl: Dataloader for the test dataset
 
-  model = VAEModel()
-  trainer = Trainer(model, '123', 'cpu')
-  for ind in range(len(trainer._loss_layers)):
-    print(trainer._loss_layers[ind])
-    print(f'type of module in layer {ind} is {type(trainer._loss_layers[ind])}')
-  torch.manual_seed(3)
-  recon = torch.randn((3, 64, 64))
-  orig = torch.randn((3, 64, 64))
-  recon = recon.unsqueeze(0)
-  orig = orig.unsqueeze(0)
-  print(recon.shape)
-  print(orig.shape)
-  loss = trainer.get_feature_perceptual_loss(recon, orig)
-"""
+    Returns:
+      Loss for the epoch average of the epoch datasize
+    """
+    running_loss = 0.0
+    running_size = 0
+    with torch.no_grad():
+      for _, images in enumerate(test_dl):
+        originals = images.to(self._dev)
+        recon, _, _ = model(originals)
+        perceptual_loss = self._get_feature_perceptual_loss(recon, originals)
+        running_loss += (perceptual_loss.item())
+        running_size += images.shape[0]
+    return running_loss / running_size
