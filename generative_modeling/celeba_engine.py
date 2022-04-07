@@ -72,10 +72,15 @@ def main():
                     hyper_params=construct_hyperparams)
   train_dl, test_dl = get_loaders()
 
+  train_losses = []
+  test_losses = []
   for epoch in range(NUM_EPOCHS):
     train_loss = trainer.run_epoch(model, train_dl)
     test_loss = trainer.run_test_loop(model, test_dl)
-    logger.save_loss(train_loss, test_loss, epoch + 1)
+    train_losses.append(train_loss)
+    test_losses.append(test_loss)
+
+  logger.save_loss(train_losses, test_losses, epoch + 1)
 
 
 if __name__ == '__main__':
