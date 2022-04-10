@@ -22,16 +22,16 @@ class VAEModel(nn.Module):
   def __init__(self) -> None:
     super(VAEModel, self).__init__()
     self.encoder = nn.Sequential(
-        nn.Conv2d(3, 32, 4, stride=2),
+        nn.Conv2d(3, 32, 4, padding=1, padding_mode='replicate', stride=2),
         nn.BatchNorm2d(32),
         nn.LeakyReLU(),
-        nn.Conv2d(32, 64, 4, stride=2),
+        nn.Conv2d(32, 64, 4, padding=1, padding_mode='replicate', stride=2),
         nn.BatchNorm2d(64),
         nn.LeakyReLU(),
-        nn.Conv2d(64, 128, 4, stride=2),
+        nn.Conv2d(64, 128, 4, padding=1, padding_mode='replicate', stride=2),
         nn.BatchNorm2d(128),
         nn.LeakyReLU(),
-        nn.Conv2d(128, 256, 4, stride=2),
+        nn.Conv2d(128, 256, 4, padding=1, padding_mode='replicate', stride=2),
         nn.BatchNorm2d(256),
         nn.LeakyReLU(),
     )
@@ -115,6 +115,8 @@ class Trainer(object):
           'loss_alpha': 1,
           'loss_beta': 0.5
       }
+    else:
+      self._hp = hyper_params
 
     if vgg_variant is None or vgg_variant != '123' or vgg_variant != '345':
       self._loss_variant = '123'
@@ -160,7 +162,7 @@ class Trainer(object):
     total_loss = torch.as_tensor(0.0).to(self._dev)
     recon = recon.to(self._dev)
     orig = orig.to(self._dev)
-    for _, module_list in enumerate(self._loss_layers):
+    for i, module_list in enumerate(self._loss_layers):
       for layer in module_list:
         recon = layer.forward(recon)
         orig = layer.forward(orig)
@@ -200,7 +202,7 @@ class Trainer(object):
     """
     running_loss = 0.0
     running_size = 0
-    for _, (images, _) in enumerate(train_dl):
+    for _, images, in enumerate(train_dl):
       original = images.to(self._dev)
       reconstructed, mu, log_var = model(original)
       perceptual_loss = self._get_feature_perceptual_loss(
