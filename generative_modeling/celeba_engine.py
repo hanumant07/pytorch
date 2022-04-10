@@ -1,4 +1,6 @@
 from typing import Dict, Tuple
+from absl import app
+from absl import flags
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -9,7 +11,11 @@ from utils import ExperimentLogger
 LEARNING_RATE = 0.01
 BATCH_SIZE = 64
 IMAGE_SIZE = 64
-NUM_EPOCHS = 5
+NUM_EPOCHS = 1
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string('logs_path', '', help='Provide the path to save logs')
+flags.DEFINE_string('data_path', '', help='Path to data directory')
 
 
 def get_transforms() -> transforms.Compose:
@@ -21,7 +27,7 @@ def get_transforms() -> transforms.Compose:
       transforms.Resize(IMAGE_SIZE),
       transforms.CenterCrop(IMAGE_SIZE),
       transforms.ToTensor(),
-      transforms.Normalize((0.5, 0.5, 0.5), (0, 5, 0.5, 0.5))
+      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
   ])
 
 
@@ -48,11 +54,11 @@ def get_device() -> torch.device:
 
 
 def get_loaders() -> Tuple[DataLoader, DataLoader]:
-  celeba_train_ds = CelebADataset(root='../data',
+  celeba_train_ds = CelebADataset(root=FLAGS.data_path,
                                   train=True,
                                   split=0.9,
                                   transforms=get_transforms())
-  celeba_test_ds = CelebADataset(root='../data',
+  celeba_test_ds = CelebADataset(root=FLAGS.data_path,
                                  split=0.9,
                                  transforms=get_transforms())
   celeba_train_dl = DataLoader(celeba_train_ds,
@@ -62,20 +68,20 @@ def get_loaders() -> Tuple[DataLoader, DataLoader]:
   return (celeba_train_dl, celeba_test_dl)
 
 
-def main():
+def main(argv):
   device = get_device()
-  logger = ExperimentLogger('./logs', 'celeba_vae')
+  logger = ExperimentLogger(FLAGS.logs_path, 'celeba_vae')
   model = VAEModel().to(device)
   trainer = Trainer(model=model,
                     vgg_variant='123',
                     device=device,
-                    hyper_params=construct_hyperparams)
+                    hyper_params=construct_hyperparams())
   train_dl, test_dl = get_loaders()
 
   train_losses = []
   test_losses = []
   for epoch in range(NUM_EPOCHS):
-    train_loss = trainer.run_epoch(model, train_dl)
+    train_loss = trainer.run_train_epoch(model, train_dl)
     test_loss = trainer.run_test_loop(model, test_dl)
     train_losses.append(train_loss)
     test_losses.append(test_loss)
@@ -84,4 +90,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  app.run(main)
