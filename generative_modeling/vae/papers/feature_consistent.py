@@ -220,7 +220,7 @@ class Trainer(object):
       running_loss += (total_loss.item())
       running_size += images.shape[0]
 
-    return (running_loss / running_size, batch_losses)
+    return (running_loss / running_size), batch_losses
 
   def run_test_loop(self, model: nn.Module,
                     test_dl: DataLoader) -> Tuple[float, List[float]]:
@@ -246,4 +246,4 @@ class Trainer(object):
         batch_losses.append(perceptual_loss.item())
         running_loss += (perceptual_loss.item())
         running_size += images.shape[0]
-    return (running_loss / running_size, batch_losses)
+    return (running_loss / running_size), batch_losses
