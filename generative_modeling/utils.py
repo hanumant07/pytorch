@@ -19,10 +19,10 @@ class ExperimentLogger:
           exp_name: experiment specific prefix for saving artifacts
 
         Raises:
-          ValueError: for bad location argument
+          OSError: if unable to create directory
         """
     if not os.path.isdir(loc):
-      raise ValueError(f'Specified location, {loc} not a directory')
+      os.mkdir(loc)
     self._location = loc
     self._prefix = exp_name
 
