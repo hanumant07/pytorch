@@ -162,7 +162,7 @@ class Trainer(object):
     total_loss = torch.as_tensor(0.0).to(self._dev)
     recon = recon.to(self._dev)
     orig = orig.to(self._dev)
-    for i, module_list in enumerate(self._loss_layers):
+    for _, module_list in enumerate(self._loss_layers):
       for layer in module_list:
         recon = layer.forward(recon)
         orig = layer.forward(orig)
@@ -188,7 +188,8 @@ class Trainer(object):
     kl = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     return kl
 
-  def run_train_epoch(self, model: nn.Module, train_dl: DataLoader) -> float:
+  def run_train_epoch(self, model: nn.Module,
+                      train_dl: DataLoader) -> Tuple[float, List[float]]:
     """ Execute 1 epoch using the given dataloader
 
     Executes the training look for one epoch and returns the loss
@@ -198,8 +199,10 @@ class Trainer(object):
       train_dl: Dataloader for the training dataset
 
     Returns:
-      Loss for the epoch average of the epoch datasize
+      Loss for the epoch average of the epoch datasize, as well as list of
+      batch losses
     """
+    batch_losses = []
     running_loss = 0.0
     running_size = 0
     for _, images, in enumerate(train_dl):
@@ -213,12 +216,14 @@ class Trainer(object):
       self._optim.zero_grad()
       total_loss.backward()
       self._optim.step()
+      batch_losses.append(total_loss.item())
       running_loss += (total_loss.item())
       running_size += images.shape[0]
 
-    return running_loss / running_size
+    return (running_loss / running_size, batch_losses)
 
-  def run_test_loop(self, model: nn.Module, test_dl: DataLoader) -> float:
+  def run_test_loop(self, model: nn.Module,
+                    test_dl: DataLoader) -> Tuple[float, List[float]]:
     """ Execute 1 iteration of the test set
 
     Returns the avg perceptual loss during the test loop
@@ -227,8 +232,10 @@ class Trainer(object):
       test_dl: Dataloader for the test dataset
 
     Returns:
-      Loss for the epoch average of the epoch datasize
+      Loss for the epoch average of the epoch datasize, as well as list of
+      batch losses
     """
+    batch_losses = []
     running_loss = 0.0
     running_size = 0
     with torch.no_grad():
@@ -236,6 +243,7 @@ class Trainer(object):
         originals = images.to(self._dev)
         recon, _, _ = model(originals)
         perceptual_loss = self._get_feature_perceptual_loss(recon, originals)
+        batch_losses.append(perceptual_loss.item())
         running_loss += (perceptual_loss.item())
         running_size += images.shape[0]
-    return running_loss / running_size
+    return (running_loss / running_size, batch_losses)
