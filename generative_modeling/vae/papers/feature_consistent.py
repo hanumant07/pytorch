@@ -1,9 +1,10 @@
 import torch
 from typing import Tuple, List
+from tqdm import tqdm
 from torch import nn
 from torch.nn import functional as F
 from torch import optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import models
 
 Tensor = torch.Tensor
@@ -188,8 +189,8 @@ class Trainer(object):
     kl = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     return kl
 
-  def run_train_epoch(self, model: nn.Module,
-                      train_dl: DataLoader) -> Tuple[float, List[float]]:
+  def run_train_epoch(self, model: nn.Module, train_dl: DataLoader,
+                      train_ds: Dataset) -> Tuple[float, List[float]]:
     """ Execute 1 epoch using the given dataloader
 
     Executes the training look for one epoch and returns the loss
@@ -197,6 +198,7 @@ class Trainer(object):
     Args:
       model: The Vae model instance
       train_dl: Dataloader for the training dataset
+      train_ds: Training dataset
 
     Returns:
       Loss for the epoch average of the epoch datasize, as well as list of
@@ -205,7 +207,8 @@ class Trainer(object):
     batch_losses = []
     running_loss = 0.0
     running_size = 0
-    for _, images, in enumerate(train_dl):
+    for _, images, in tqdm(enumerate(train_dl),
+                           total=int(len(train_ds) / train_dl.batch_size)):
       original = images.to(self._dev)
       reconstructed, mu, log_var = model(original)
       perceptual_loss = self._get_feature_perceptual_loss(
@@ -222,14 +225,15 @@ class Trainer(object):
 
     return (running_loss / running_size), batch_losses
 
-  def run_test_loop(self, model: nn.Module,
-                    test_dl: DataLoader) -> Tuple[float, List[float]]:
+  def run_test_loop(self, model: nn.Module, test_dl: DataLoader,
+                    test_ds: Dataset) -> Tuple[float, List[float]]:
     """ Execute 1 iteration of the test set
 
     Returns the avg perceptual loss during the test loop
     Args:
       model: The Vae model instance
       test_dl: Dataloader for the test dataset
+      test_ds: Test dataset
 
     Returns:
       Loss for the epoch average of the epoch datasize, as well as list of
@@ -239,7 +243,8 @@ class Trainer(object):
     running_loss = 0.0
     running_size = 0
     with torch.no_grad():
-      for _, images in enumerate(test_dl):
+      for _, images in tqdm(enumerate(test_dl),
+                            total=int(len(test_ds) / test_dl.batch_size)):
         originals = images.to(self._dev)
         recon, _, _ = model(originals)
         perceptual_loss = self._get_feature_perceptual_loss(recon, originals)

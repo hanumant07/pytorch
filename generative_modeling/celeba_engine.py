@@ -3,7 +3,7 @@ from absl import app
 from absl import flags
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from vae.papers.feature_consistent import Trainer, VAEModel
 from datasets.celeb_a import CelebADataset
 from utils import ExperimentLogger
@@ -53,7 +53,7 @@ def get_device() -> torch.device:
     return torch.device('cpu')
 
 
-def get_loaders() -> Tuple[DataLoader, DataLoader]:
+def get_loaders() -> Tuple[DataLoader, Dataset, DataLoader, Dataset]:
   celeba_train_ds = CelebADataset(root=FLAGS.data_path,
                                   train=True,
                                   split=0.9,
@@ -65,7 +65,7 @@ def get_loaders() -> Tuple[DataLoader, DataLoader]:
                                shuffle=True,
                                batch_size=BATCH_SIZE)
   celeba_test_dl = DataLoader(celeba_test_ds, batch_size=BATCH_SIZE)
-  return (celeba_train_dl, celeba_test_dl)
+  return (celeba_train_dl, celeba_train_ds, celeba_test_dl, celeba_test_ds)
 
 
 def main(argv):
@@ -76,13 +76,15 @@ def main(argv):
                     vgg_variant='123',
                     device=device,
                     hyper_params=construct_hyperparams())
-  train_dl, test_dl = get_loaders()
+  train_dl, train_ds, test_dl, test_ds = get_loaders()
 
   epoch_train_losses = []
   epoch_test_losses = []
   for epoch in range(NUM_EPOCHS):
-    epoch_train_loss, train_loss_list = trainer.run_train_epoch(model, train_dl)
-    epoch_test_loss, test_loss_list = trainer.run_test_loop(model, test_dl)
+    epoch_train_loss, train_loss_list = trainer.run_train_epoch(
+        model, train_dl, train_ds)
+    epoch_test_loss, test_loss_list = trainer.run_test_loop(
+        model, test_dl, test_ds)
     epoch_train_losses.append(epoch_train_loss)
     epoch_test_losses.append(epoch_test_loss)
     logger.save_loss(train_loss_list, test_loss_list, epoch)
