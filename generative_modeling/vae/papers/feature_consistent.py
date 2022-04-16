@@ -1,5 +1,6 @@
+from tabnanny import check
 import torch
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from tqdm import tqdm
 from torch import nn
 from torch.nn import functional as F
@@ -104,8 +105,34 @@ class Trainer(object):
                model: nn.Module,
                vgg_variant: str,
                device: torch.device,
-               hyper_params: dict = None) -> None:
+               hyper_params: dict = None,
+               checkpoint_path: str = None) -> None:
     self._dev = device
+    self._checkpoint = None
+
+    self._setup_hyper_params(hyper_params)
+
+    if checkpoint_path is not None:
+      self._checkpoint = torch.load(checkpoint_path, map_location=self._dev)
+
+    self._setup_optim(model)
+    self._setup_loss_layer(vgg_variant)
+
+  def _setup_optim(self, model: nn.Module, chkpt_path: str = None) -> None:
+    """ Setup optimizer
+
+    Load optimizer from a checkpoint if provided
+    """
+    self._optim = optim.Adam(model.parameters(),
+                             lr=self._hp['lr'],
+                             weight_decay=self._hp['gamma'])
+    if self._checkpoint is not None:
+      model.load_state_dict(self._checkpoint['model_state_dict'])
+      self._optim.load_state_dict(self._checkpoint['optim_state_dict'])
+
+  def _setup_hyper_params(self, hyper_params: dict = None) -> None:
+    """ setup hyperparams dictionary
+    """
     self._hp = {}
     if hyper_params is None:
       self._hp = {
@@ -119,14 +146,17 @@ class Trainer(object):
     else:
       self._hp = hyper_params
 
-    if vgg_variant is None or vgg_variant != '123' or vgg_variant != '345':
-      self._loss_variant = '123'
-    else:
-      self._loss_variant = '345'
+  def _setup_loss_layer(self, vgg_variant: str = None) -> None:
+    """ Setsup the loss layers using VGG model variant specified
+    """
 
-    self._optim = optim.Adam(model.parameters(),
-                             lr=self._hp['lr'],
-                             weight_decay=self._hp['gamma'])
+    if self._checkpoint is not None:
+      self._vgg_variant = self._checkpoint['vgg_variant']
+    else:
+      if vgg_variant is None or vgg_variant != '123' or vgg_variant != '345':
+        self._loss_variant = '123'
+      else:
+        self._loss_variant = '345'
     self._loss_layers = self._get_vgg_layers()
 
   def _get_vgg_layers(self) -> List[nn.ModuleList]:
@@ -222,8 +252,8 @@ class Trainer(object):
       batch_losses.append(total_loss.item())
       running_loss += (total_loss.item())
       running_size += images.shape[0]
-
-    return (running_loss / running_size), batch_losses
+    self._train_loss = (running_loss / running_size)
+    return self._train_loss, batch_losses
 
   def run_test_loop(self, model: nn.Module, test_dl: DataLoader,
                     test_ds: Dataset) -> Tuple[float, List[float]]:
@@ -251,4 +281,26 @@ class Trainer(object):
         batch_losses.append(perceptual_loss.item())
         running_loss += (perceptual_loss.item())
         running_size += images.shape[0]
-    return (running_loss / running_size), batch_losses
+    self._test_loss = (running_loss / running_size)
+    return self._test_loss, batch_losses
+
+  def save_state(self, model: nn.Modele, num_epochs: int, path: str) -> None:
+    """ save training state
+
+      Saves the model state dict, optimizer state dict, epoch,
+      last training loss, val loss
+
+      Args:
+        model: Model to be saved
+        num_epochs: number of epochs finished before freeze
+        path: filename to save the checkpoint as
+      """
+    torch.save(
+        {
+            'epoch': num_epochs,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': self._optim.state_dict(),
+            'train_loss': self._train_loss,
+            'test_loss': self._test_loss,
+            'vgg_variant': self._vgg_variant
+        }, path)
