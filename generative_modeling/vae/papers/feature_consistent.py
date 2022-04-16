@@ -1,4 +1,3 @@
-from tabnanny import check
 import torch
 from typing import Tuple, List, Dict
 from tqdm import tqdm
